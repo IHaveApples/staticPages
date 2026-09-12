@@ -165,10 +165,13 @@
       a.href = returnUrl;
       a.style.display = 'none';
       document.body.appendChild(a);
+      console.log('returnUrl:', returnUrl);
       a.click();
 
       const statusIcon = isSuccess ? '✅' : '❌';
       const statusText = isSuccess ? 'Signature Complete' : 'Signature Failed';
+
+      console.log('finalReturnUrl:', finalReturnUrl);
 
       document.getElementById('appContainer').innerHTML = `
         <div style="text-align: center; padding: 20px;">
@@ -194,17 +197,11 @@
       try {
         const accounts = await provider.request({method: 'eth_requestAccounts'});
         const address = accounts[0];
-        console.log('xxxxxxx1');
-        console.log(address);
         const hexMessage = '0x' + Array.from(new TextEncoder().encode(nonce)).map(b => b.toString(16).padStart(2, '0')).join('');
-        console.log('xxxxxxx2');
-        console.log(hexMessage);
         const signature = await provider.request({
           method: 'personal_sign',
           params: [hexMessage, address]
         });
-        console.log('xxxxxxx3');
-        console.log(signature);
         returnToApp('success', address, signature);
       } catch (err) {
         console.log('error', err);
@@ -224,6 +221,7 @@
         const hexSignature = Array.from(signResult.signature).map(b => b.toString(16).padStart(2, '0')).join('');
         returnToApp('success', address, hexSignature);
       } catch (err) {
+        console.log('error', err);
         returnToApp('error', '', '', err.message);
       }
     }
@@ -240,6 +238,7 @@
         const signature = await provider.trx.signMessageV2(nonce);
         returnToApp('success', address, signature);
       } catch (err) {
+        console.log('error', err);
         returnToApp('error', '', '', err.message);
       }
     }
