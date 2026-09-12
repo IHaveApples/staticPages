@@ -1,12 +1,260 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
-    <head>
-        <meta charset="utf-8" />
-        <title>test</title>
-    </head>
-    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-    <script>eruda.init();</script>
-    <body>
-        Hello World!
-    </body>
+
+<head>
+  <meta charset="utf-8">
+  <title>Authotizing signature...</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1.0,maximum-scale=1.0">
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #000;
+      color: #fff;
+      margin: 0;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+  <script>eruda.init();</script>
+</head>
+
+
+<body>
+  <div id="appContainer" style="text-align: center; padding: 20px;">
+    <h3>Invoking confirm signature...</h3>
+  </div>
+  <script>
+    let searchParams = window.location.search;
+    if (typeof window.binancew3w !== 'undefined') {
+      const base64Str = searchParams.substring(1);
+      searchParams = atob(base64Str);
+    }
+    const urlparams = new URLSearchParams(searchParams);
+    const returnScheme = urlparams.get('returnScheme');
+    const nonce = urlparams.get('nonce');
+    const chaintype = urlparams.get('chain') || 'eth';
+    const walletName = urlparams.get('wallet');
+    const contactSymbol = returnScheme?.includes('?') ? '&' : '?';
+
+    let provider = null;
+
+    function getProvider() {
+      if (chaintype === 'solana') {
+        return window?.solflare || window?.phanto?.solana || window?.trustwallet?.solana || window?.solana;
+      } else if (chaintype === 'tron') {
+        return window?.binancew3w?.tron || window?.trustwallet?.tronWeb || window?.tronWeb;
+      } else {
+        return window?.phantom?.ethereum || window?.trustwallet?.ethereum || window?.ethereum;
+      }
+    }
+
+    async function copyTextToClipboard(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        try {
+          await navigator.clipboard.writeText(text);
+          console.log('Clipvoard API 复制成功');
+          return true;
+        } catch (err) {
+          console.warn('Clipvoard API 复制失败', err);
+        }
+
+        try {
+          const textArea = document.createElement('textarea');
+          textArea.value = text;
+          textArea.setAttribute('readonly', '');
+          textArea.style.position = 'absolute';
+          textArea.style.left = '-999px';
+          textArea.style.top = '0';
+          document.body.appendChild(textArea);
+
+          const successful = document.execCommand('copy');
+          document.body.removeChild(textArea);
+
+          if (successful) {
+            console.log('execCommand 复制成功');
+            return true;
+          } else {
+            throw new Error('execCommand 复制失败');
+          }
+        } catch (err) {
+          console.log('execCommand 复制失败');
+          return false;
+        }
+      }
+    }
+
+    function buildAndroidReturnIntent(queryStr) {
+      const hostAndPath = 'mbs.staging.sgb.com/download/#/download';
+      const packageName = 'com.cloudcore.sgbbank.stable';
+      const fallbackUrl = encodeURIComponent('https://download.staging.sgb.com/app/index.html');
+      return `intent://${hostAndPath}?${queryStr}#Intent;scheme=sgb;package=${packageName};S.browser_fallback_url=${fallbackUrl};end`;
+    }
+
+    function returnToApp(action, address, signature, errmsg = '') {
+      let returnQuery = '';
+      if (action === 'error') {
+        returnQuery = `action=error&msg=${encodeURIComponent(errmsg)}`;
+      } else {
+        returnQuery = `action=wallet-signature&address=${address}&signature=${signature}`;
+      }
+
+      const isAndroid = /android/i.test(navigator.userAgent);
+
+      let returnUrl = finalReturnUrl = '';
+
+      if (isAndroid) {
+        finalReturnUrl = buildAndroidReturnIntent(returnQuery);
+      } else {
+        returnUrl = finalReturnUrl = `${returnScheme}${contactSymbol}${returnQuery}`;
+      }
+
+      const isSuccess = action !== 'error';
+
+      if (walletName === 'metamask' && isAndroid && isSuccess) {
+        const clipboardData = JSON.stringify({
+          address,
+          signature
+        });
+
+        document.getElementById('appContainer').innerHTML = `
+          <div style="text-align: center; padding: 20px;">
+            <h1 id="statusIcon" style="font-size: 48px; margin-bottom: 12px;">⏳</h1>
+            <h2 id="statusTitle" style="color: #fff; margin-bottom: 8px;">Action Require</h2>
+            <p id="copyStatus" style="color: #aaa; font-size: 14px; margin-bottom: 24px; line-height: 1.5;">
+              MetaMask 限制了自动跳转功能<br/>
+              请点击下方按钮复制签名并返回
+            </p>
+            <button id="manualCopyBtn" style="
+              display: inline-block;
+              padding: 12px 32px;
+              background-color: #0275ff;
+              color: #fff;
+              border: none;
+              font-size: 15px;
+              border-radius: 8px;
+              font-weight: old;
+              margin-top: 10px;">
+              请同意复制并手动返回
+            </button>
+          </div>
+        `;
+
+        const btn = document.getElementById('manualCopyBtn');
+        btn.onclick = () => {
+          copyTextToClipboard(clipboardData).then(success => {
+            if (success) {
+              document.getElementById('statusIcon').innerText = '✅';
+              document.getElementById('statusTitle').innerText = 'Signature Complete';
+              document.getElementById('copyStatus').innerText = '已成功复制，请手动跳回SGB App';
+              document.getElementById('copyStatus').style.color = '#00ff00';
+              btn.style.display = 'none';
+            } else {
+              document.getElementById('statusIcon').innerText = '❌';
+              document.getElementById('statusTitle').innerText = 'Copy Failed';
+              document.getElementById('copyStatus').innerText = '复制失败，请重试';
+              document.getElementById('copyStatus').style.color = '#ff4444';
+            }
+          });
+        }
+        return;
+      }
+
+      const a = document.createElement('a');
+      a.href = returnUrl;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+
+      const statusIcon = isSuccess ? '✅' : '❌';
+      const statusText = isSuccess ? 'Signature Complete' : 'Signature Failed';
+
+      document.getElementById('appContainer').innerHTML = `
+        <div style="text-align: center; padding: 20px;">
+          <h1 id="statusIcon" style="font-size: 48px; margin-bottom: 12px;">${statusIcon}</h1>
+          <h2 id="statusTitle" style="color: #fff; margin-bottom: 8px;">${statusText}</h2>
+          <p style="color: #888; font-size: 13px; margin-bottom: 24px;>如果未能自动返回 App，请点击下方按钮</p>
+          <a href="${finalReturnUrl}" style="
+            display: inline-block;
+            padding: 12px 32px;
+            background-color: #0275ff;
+            color: #fff;
+            text-decoration: none;
+            font-size: 15px;
+            border-radius: 8px;
+            font-weight: old;">
+            返回 App
+          </a>
+        </div>
+      `;
+    }
+
+    async function executeEthAction() {
+      try {
+        const accounts = await provider.request({method: 'eth_requestAccounts'});
+        const address = accounts[0];
+        const hexMessage = '0x' + Array.from(new TextDecoder().encode(nonce)).map(b => b.toString(16).padStart(2, '0')).join('');
+        const signature = await provider.request({
+          method: 'personal-sign',
+          params: [hexMessage, address]
+        });
+        returnToApp('success', address, signature);
+      } catch (err) {
+        returnToApp('error', '', '', err.message);
+      }
+    }
+
+    async function executeSolanaAction() {
+      try {
+        const resp = await provider.connect();
+        let address = resp?.publicKey?.toString() || '';
+        const message = new TextDecoder().encode(nonce);
+        const signResult = await provider.signMessage(message, 'utf8');
+        if (typeof window.solflare !== 'undefined') {
+          address = signResult.publicKey.toString();
+        }
+        const hexSignature = Array.from(signResult.signature).map(b => b.toString(16).padStart(2, '0')).join('');
+        returnToApp('success', address, hexSignature);
+      } catch (err) {
+        returnToApp('error', '', '', err.message);
+      }
+    }
+
+    async function executeTronAction() {
+      try {
+        if (typeof window.binancew3w !== 'undefined') {
+          const { address } = await provider.getAccount();
+          const signature = await provider.signMessageV2(nonce);
+          returnToApp('success', address, signature);
+          return;
+        }
+        const address = provider.defaultAddress.base58;
+        const signature = await provider.trx.signMessageV2(nonce);
+        returnToApp('success', address, signature);
+      } catch (err) {
+        returnToApp('error', '', '', err.message);
+      }
+    }
+
+    (function run() {
+      if (!returnScheme || !nonce) {
+        alert('missing params: returnScheme or nonce');
+        return;
+      }
+      provider = getProvider();
+      if (!provider) {
+        setTimeout(run, 50);
+      } else {
+        if (chaintype === 'solana') {
+          executeSolanaAction();
+        } else if (chaintype === 'tron') {
+          executeTronAction();
+        } else {
+          executeEthAction();
+        }
+      }
+    })();
+  </script>
+</body>
 </html>
