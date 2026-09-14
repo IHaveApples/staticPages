@@ -59,29 +59,30 @@
         } catch (err) {
           console.warn('Clipvoard API 复制失败', err);
         }
+      }
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.setAttribute('readonly', '');
+        textArea.style.position = 'absolute';
+        textArea.style.left = '-999px';
+        textArea.style.top = '0';
+        document.body.appendChild(textArea);
 
-        try {
-          const textArea = document.createElement('textarea');
-          textArea.value = text;
-          textArea.setAttribute('readonly', '');
-          textArea.style.position = 'absolute';
-          textArea.style.left = '-999px';
-          textArea.style.top = '0';
-          document.body.appendChild(textArea);
+        textArea.select();
 
-          const successful = document.execCommand('copy');
-          document.body.removeChild(textArea);
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
 
-          if (successful) {
-            console.log('execCommand 复制成功');
-            return true;
-          } else {
-            throw new Error('execCommand 复制失败');
-          }
-        } catch (err) {
-          console.log('execCommand 复制失败');
-          return false;
+        if (successful) {
+          console.log('execCommand 复制成功');
+          return true;
+        } else {
+          throw new Error('execCommand 复制失败');
         }
+      } catch (err) {
+        console.log('execCommand 复制失败');
+        return false;
       }
     }
 
@@ -102,17 +103,15 @@
 
       const isAndroid = /android/i.test(navigator.userAgent);
 
-      let returnUrl = finalReturnUrl = '';
+      let returnUrl = finalReturnUrl = `${returnScheme}${contactSymbol}${returnQuery}`;
 
       if (isAndroid) {
         finalReturnUrl = buildAndroidReturnIntent(returnQuery);
-      } else {
-        returnUrl = finalReturnUrl = `${returnScheme}${contactSymbol}${returnQuery}`;
       }
 
       const isSuccess = action !== 'error';
 
-      if (walletName === 'metamask' && isAndroid && isSuccess) {
+      if (['metamask', 'solflare'].includes(walletName) && isAndroid && isSuccess) {
         const clipboardData = JSON.stringify({
           address,
           signature
@@ -177,7 +176,7 @@
         <div style="text-align: center; padding: 20px;">
           <h1 id="statusIcon" style="font-size: 48px; margin-bottom: 12px;">${statusIcon}</h1>
           <h2 id="statusTitle" style="color: #fff; margin-bottom: 8px;">${statusText}</h2>
-          <p style="color: #888; font-size: 13px; margin-bottom: 24px;>如果未能自动返回 App，请点击下方按钮</p>
+          <p style="color: #888; font-size: 13px; margin-bottom: 24px;">如果未能自动返回 App，请点击下方按钮</p>
           <a href="${finalReturnUrl}" style="
             display: inline-block;
             padding: 12px 32px;
