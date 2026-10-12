@@ -39,6 +39,7 @@
     const contactSymbol = returnScheme?.includes('?') ? '&' : '?';
 
     let provider = null;
+    let disConnectFun = null;
 
     function getProvider() {
       if (chaintype === 'solana') {
@@ -94,6 +95,9 @@
     }
 
     function returnToApp(action, address, signature, errmsg = '') {
+      if (disConnectFun !== null) {
+        disConnectFun();
+      }
       let returnQuery = '';
       if (action === 'error') {
         returnQuery = `action=error&msg=${encodeURIComponent(errmsg)}`;
@@ -195,6 +199,12 @@
     async function executeEthAction() {
       try {
         const accounts = await provider.request({method: 'eth_requestAccounts'});
+        disConnectFun = () => {
+          provider?.request({
+            method: 'wallet_revokePermissions',
+            params: [{eth_accounts: {}}]
+          });
+        }
         const address = accounts[0];
         const hexMessage = '0x' + Array.from(new TextEncoder().encode(nonce)).map(b => b.toString(16).padStart(2, '0')).join('');
         const signature = await provider.request({
@@ -211,6 +221,9 @@
     async function executeSolanaAction() {
       try {
         const resp = await provider.connect();
+        disConnectFun = () => {
+          provider?.disConnect();
+        }
         let address = resp?.publicKey?.toString() || '';
         const message = new TextEncoder().encode(nonce);
         const signResult = await provider.signMessage(message, 'utf8');
